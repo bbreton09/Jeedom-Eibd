@@ -2,9 +2,10 @@
 if (!isConnect('admin')) {
     throw new Exception('401 Unauthorized');
 }
-include_file('3rdparty', 'jquery.tablesorter/theme.bootstrap', 'css');
-include_file('3rdparty', 'jquery.tablesorter/jquery.tablesorter.min', 'js');
-include_file('3rdparty', 'jquery.tablesorter/jquery.tablesorter.widgets.min', 'js');
+include_file('desktop', 'ETSparse', 'js', 'eibd');
+include_file('desktop', 'autoCreate', 'js', 'eibd');
+include_file('desktop', 'arborescenceCreate', 'js', 'eibd');
+sendVarToJS('templates',eibd::devicesParameters());
 if(isset($_REQUEST['SelectAddr']))
 	echo '<script>var SelectAddr="'.$_REQUEST['SelectAddr'].'";</script>';
 else
@@ -30,6 +31,19 @@ else
 	    overflow: auto;
 	}
 </style>
+<div class="input-group pull-right" style="display:inline-flex">
+	<span class="input-group-btn">
+		<a class="btn btn-success btn-xs roundedRight Include" data-validation=true></a> 
+		<a class="btn btn-default btn-xs roundedRight Ets4Parser" >
+			<i class="fas fa-cloud-upload"></i>
+			{{ Importer}}
+		</a> 
+		<a class="btn btn-warning btn-xs roundedRight bt_autoCreate" >
+			<i class="fas fa-plus-circle"></i>
+			{{ Créer}}
+		</a> 
+	</span>
+</div>
 <ul class="nav nav-tabs" role="tablist">
 	<li role="presentation" class="active">
 		<a href="#InconueTab" aria-controls="home" role="tab" data-toggle="tab" aria-expanded="true">
@@ -37,31 +51,34 @@ else
 	</li>
 	<li role="presentation" class="">
 		<a href="#DeviceTab" aria-controls="profile" role="tab" data-toggle="tab" aria-expanded="false">
-			<i class="fa fa-list-alt"></i> {{Equipement}}</a>
+			<i class="fa fa-list-alt"></i> {{Équipements}}</a>
 	</li>
 	<li role="presentation" class="">
 		<a href="#AdressTab" aria-controls="profile" role="tab" data-toggle="tab" aria-expanded="false">
-			<i class="fa fa-list-alt"></i> {{Adresse de groupes}}</a>
+			<i class="fa fa-list-alt"></i> {{Adresses de groupes}}</a>
+	</li>
+	<li role="presentation" class="">
+		<a href="#LocationsTab" aria-controls="profile" role="tab" data-toggle="tab" aria-expanded="false">
+			<i class="fa fa-list-alt"></i> {{Localisations}}</a>
 	</li>
 </ul>
 <div class="tab-content" style="height: 500px;overflow: auto;">
 	<div role="tabpanel" class="tab-pane active" id="InconueTab">
-		<span class="pull-right">
-			<a class="btn btn-danger btn-xs pull-right removeAllGad" style="margin-bottom : 5px;">
-				<i class="fa fa-trash-o"></i>
-				{{ Supprimer}}
-			</a>
-		</span>
-		<span class="pull-right">
-			<a class="btn btn-warning btn-xs pull-right Include" data-validation=true style="margin-bottom : 5px;" ></a> 
-		</span>
+		<div class="input-group pull-right" style="display:inline-flex">
+			<span class="input-group-btn">
+				<a class="btn btn-danger btn-xs roundedRight removeAllGad">
+					<i class="fas fa-trash-o"></i>
+					{{ Nettoyer}}
+				</a>
+			</span>
+		</div>
 		<table id="table_GadInconue" class="table table-bordered table-condensed tablesorter GadInsert">
 			<thead>
 				<tr>
 					<th>{{Source}}</th>
 					<th>{{Destination}}</th>
 					<th>{{Data Point Type}}</th>
-					<th>{{Derniere valeur}}</th>
+					<th>{{Dernière valeur}}</th>
 					<th>{{Action sur cette adresse de groupe}}</th>
 				</tr>
 			</thead>
@@ -69,38 +86,18 @@ else
 		</table>
 	</div>
 	<div role="tabpanel" class="tab-pane" id="DeviceTab">
-		<span class="pull-right">
-			<a class="btn btn-warning btn-xs Ets4Parser" >
-				<i class="fa fa-cloud-upload"></i>
-				{{Importer projet KNX}}
-			</a> 
-		</span>
-		<table id="table_Devices" class="table table-bordered table-condensed tablesorter GadInsert">
-			<thead>
-				<tr>
-					<th>{{Equipement}}</th>
-					<th>{{Source}}</th>
-					<th>{{Commande}}</th>
-					<th>{{Destination}}</th>
-					<th>{{Data Point Type}}</th>
-				</tr>
-			</thead>
-			<tbody></tbody>
-		</table>
+		<ul class="MyDeviceGroup"></ul>
 	</div>
 	<div role="tabpanel" class="tab-pane" id="AdressTab">
-		<span class="pull-right">
-			<a class="btn btn-warning btn-xs Ets4Parser" >
-				<i class="fa fa-cloud-upload"></i>
-				{{Importer projet KNX}}
-			</a> 
-		</span>
 		<ul class="MyAdressGroup"></ul>
 	</div>
+	<div role="tabpanel" class="tab-pane" id="LocationsTab">
+		<ul class="MyLocationsGroup"></ul>
+	</div>
 </div>
-
 <script>
 var KnxGadInconueRefresh = null;
+var KnxProject = null;
 $.ajax({
 	type: 'POST',
 	async: false,
@@ -119,12 +116,12 @@ $.ajax({
 		}
 		if(data.result == "false"){
 			$('.Include').attr('data-validation',"true");
-			$('.Include').html($('<i class="fa fa-bullseye">'))
-				.append(' {{Activer  l\'inculsion}}');
+			$('.Include').html($('<i class="fas fa-bullseye">'))
+				.append(' {{Activer}}');
 		}else{
 			$('.Include').attr('data-validation',"false");
-			$('.Include').html($('<i class="fa fa-spinner fa-pulse">'))
-				.append(' {{Désactiver l\'inculsion}}');
+			$('.Include').html($('<i class="fas fa-spinner fa-pulse">'))
+				.append(' {{Désactiver}}');
 		}
 	}
 });
@@ -149,56 +146,20 @@ $('.Include').off().on('click', function () {
 			if($('.Include').attr('data-validation') == "false"){
 				$('.Include').attr('data-validation',"true");
 				$('.Include').html($('<i class="fa fa-bullseye">'))
-					.append(' {{Activer  l\'inculsion}}');
+					.append(' {{Activer  l\'inclusion}}');
 			}else{
 				$('.Include').attr('data-validation',"false");
 				$('.Include').html($('<i class="fa fa-spinner fa-pulse">'))
-					.append(' {{Désactiver l\'inculsion}}');
+					.append(' {{Désactiver l\'inclusion}}');
 			}
 		}
 	});
 });
-$('.Ets4Parser').on('click', function() {
-	bootbox.dialog({
-		title: "{{Importer votre projet KNX}}",
-		height: "800px",
-		width: "auto",
-		message: $('<div>').load('index.php?v=d&modal=eibd.EtsParser&plugin=eibd&type=eibd'),
-		buttons: {
-			"Annuler": {
-				className: "btn-default",
-				callback: function () {
-					//el.atCaret('insert', result.human);
-				}
-			},
-			success: {
-				label: "Valider",
-				className: "btn-primary",
-				callback: function () {
-					$.ajax({
-						type: 'POST',   
-						url: 'plugins/eibd/core/ajax/eibd.ajax.php',
-						data:
-						{
-							action: 'AnalyseEtsProj',
-							option: $('body .EtsParserDiv').getValues('.EtsParseParameter')
-						},
-						dataType: 'json',
-						global: true,
-						error: function(request, status, error) {},
-						success: function(data) {
-							if($('body .EtsParserDiv .EtsParseParameter[data-l1key=createEqLogic]').checked){
-								window.location.reload();
-							}else{
-								UpdateDeviceTable(data.result.Devices)
-								CreateArboressance(data.result.GAD,$('.MyAdressGroup'),true);
-							}
-						}
-					});
-				}
-			},
-		}
-	});
+$('.Ets4Parser').off().on('click', function() {
+	ImportEts(false);
+});
+$('.bt_autoCreate').off().on('click', function() {
+	autoCreate();
 });
 var SelectGad='';
 initTableSorter();
@@ -247,8 +208,6 @@ function getKnxGadInconue () {
 		}
 	});
 }
-$("#table_Devices .tablesorter-filter[data-column=1]").val(SelectAddr);
-$("#table_Devices .tablesorter-filter[data-column=4]").val(SelectDpt);
 getEtsProj();
 function getEtsProj () {
 	$.ajax({
@@ -270,8 +229,10 @@ function getEtsProj () {
 			}
 			if (data.result == false) 
 				return;
-			UpdateDeviceTable(data.result.Devices);
+			KnxProject = data.result;
+			CreateArboressance(data.result.Devices,$('.MyDeviceGroup'),true);
 			CreateArboressance(data.result.GAD,$('.MyAdressGroup'),true);
+			CreateArboressance(data.result.Locations,$('.MyLocationsGroup'),true);
 		}
 	});
 }
@@ -289,14 +250,16 @@ $('body').on('click', '.GadInsert tbody tr', function(){
 	$('.GadInsert tr').css('font-weight','unset');
 	$(this).closest('tr').css('font-weight','bold');
 	SelectGad = $(this).closest('tr').find('.AdresseGroupe').text();
-	SelectAddr=$(this).closest('tr').find('.DataPointType').text();
+	SelectAddr = $(this).closest('tr').find('.AdressePhysique').text();
+	SelectDpt=$(this).closest('tr').find('.DataPointType').text();
 })
 .on('dblclick','.AdresseGroupe',function(e){
 	$('.AdresseGroupe').css('font-weight','unset');
 	$('.GadInsert tr').css('font-weight','unset');
 	$(this).css('font-weight','bold');
 	SelectGad=$(this).attr('data-AdresseGroupe');
-	SelectDpt=$(this).attr('data-DataPointType');
+	SelectAddr=$(this).attr('data-AdressePhysique').replace(/\-/g, '.');
+	SelectDpt=$(this).attr('data-DataPointType').replace(/\-/g, '.');
 	$(this).closest('.modal-content').find('button[data-bb-handler=success]').trigger('click');
 });
 function removeInCache(gad){
@@ -319,83 +282,4 @@ function removeInCache(gad){
 		}
 	});
 }
-function UpdateDeviceTable(Devices){	
-	$('#table_Devices tbody').html('');
-	jQuery.each(Devices,function(EquipementId, Equipement) {
-		jQuery.each(Equipement.Cmd,function(CmdId, Cmd) {
-			var tr=$("<tr>");
-			if (typeof(Equipement.DeviceName) !== 'undefined') 
-				tr.append($("<td class='DeviceName'>").text(Equipement.DeviceName));
-			else
-				tr.append($("<td class='DeviceName'>"));
-			tr.append($("<td class='AdressePhysique'>").text(Equipement.AdressePhysique));
-			if (typeof(Cmd.cmdName) !== 'undefined') 
-				tr.append($("<td class='cmdName'>").text(Cmd.cmdName));
-			else
-				tr.append($("<td class='cmdName'>"));
-			tr.append($("<td class='AdresseGroupe'>").text(Cmd.AdresseGroupe));
-			tr.append($("<td class='DataPointType'>").text(Cmd.DataPointType));
-			$('#table_Devices tbody').append(tr);
-		});	
-		});				
-	$('#table_Devices').trigger('update');
-	$("#table_Devices .tablesorter-filter[data-column=1]").trigger('keyup');
-	$("#table_Devices .tablesorter-filter[data-column=4]").trigger('keyup');
-}
-function CreateArboressance(data, Arboressance, first){
-	if (first)
-		Arboressance.html('');
-	jQuery.each(data,function(Niveau, Parameter) {
-		//if(typeof(Parameter) == 'object'){
-		if(typeof Parameter.AdresseGroupe == "undefined") {
-			Arboressance.append($('<li class="Level">').text(Niveau).append(CreateArboressance(Parameter, $('<ul>').hide(),false)));
-		}else{
-			var DataPointType = Parameter.DataPointType.replace(/\./g, '-');
-			Arboressance.append($('<li class="AdresseGroupe" data-AdresseGroupe="'+Parameter.AdresseGroupe+'" data-DataPointType="'+DataPointType+'">').text(' (' + Parameter.AdresseGroupe + ') '+Niveau));
-		}
-	});
-	if (first){
-		Arboressance.off().on('click','.Level',function(e){
-			if(!$(this).find('ul:first').is(":visible"))
-				$(this).find('ul:first').show();
-			else
-				$(this).find('ul:first').hide();
-			e.stopPropagation();
-		})
-		.on('click','.AdresseGroupe',function(e){
-			$('.AdresseGroupe').css('font-weight','unset');
-			$('.GadInsert tr').css('font-weight','unset');
-			$(this).css('font-weight','bold');
-			SelectGad=$(this).attr('data-AdresseGroupe');
-			SelectDpt=$(this).attr('data-DataPointType');
-			e.stopPropagation();
-		})
-		.on('dblclick','.AdresseGroupe',function(e){
-			$('.AdresseGroupe').css('font-weight','unset');
-			$('.GadInsert tr').css('font-weight','unset');
-			$(this).css('font-weight','bold');
-			SelectGad=$(this).attr('data-AdresseGroupe');
-			SelectDpt=$(this).attr('data-DataPointType');
-			e.stopPropagation();
-			$(this).closest('.modal-content').find('button[data-bb-handler=success]').trigger('click');
-		});
-		if(SelectDpt != ''){
-			var SelectDptId = SelectDpt.replace(/\./g, '-');
-			$.each(Arboressance.find(".AdresseGroupe"),function() {
-				if($(this).attr("data-DataPointType") == SelectDptId){
-					$(this).css('background-color','blue');
-					$(this).css('color','white');
-					$(this).parent().show();
-					$(this).parent().parent().parent().show();
-				}
-				else if($(this).attr("data-DataPointType").replace($(this).attr("data-DataPointType").substr(-3), '') == SelectDptId.replace(SelectDptId.substr(-3), '')){
-					$(this).css('background-color','yellow');
-					$(this).parent().show();
-					$(this).parent().parent().parent().show();
-				}
-			});
-		}
-	}
-	return Arboressance;
-}	
 </script>

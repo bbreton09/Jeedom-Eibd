@@ -8,11 +8,9 @@
 	"maxDependancyInstallTime" : 130,
 	"hasOwnDeamon" : true,
 	"hasDependency" : true,
-	"eventjs" : "event",
-	"require" : "2.4",
-	"compatibility" : ["miniplus","smart","rpi","docker","diy","mobile"],
+	"require" : "3.3.16",
+	"compatibility" : ["miniplus","smart","rpi","docker","diy","mobile","v4"],
 	"category" : "automation protocol",
-	"issue" : "https://github.com/mika-nt28/Jeedom-Eibd/issues",
- 	"changelog" : "https://github.com/mika-nt28/Jeedom-Eibd/commits/master",
- 	"documentation" : "http://mika-nt28.github.io/Jeedom-Eibd/"
+ 	"documentation" : "http://mika-nt28.github.io/Documentations/eibd/#language#/",
+	"changelog" : "https://mika-nt28.github.io/Documentations/eibd/#language#/changelog"
 }

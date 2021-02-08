@@ -1,6 +1,8 @@
 {
 	"temperature":{
 		"name":"Temperature",
+		"category": {"heating": "1", "security": "0", "energy": "0", "light": "0", "automatism": "0", "multimedia": "0", "default": "0"},
+		"Synonyme":["Temperature"],
 		"isVisible":"1",
 		"isEnable":"1",
 		"category":	{
@@ -14,24 +16,25 @@
 		},
 		"cmd":[
 			{
-			"name":"Valeur",
-			"type":"info",
-			"subType":"numeric",
-			"isHistorized":"1",
-			"unite":"°C",
-			"configuration":{
-				"KnxObjectType":"9.001",
-				"FlagRead":"0",
-				"FlagWrite":"1",
-				"FlagTransmit":"0",
-				"FlagUpdate":"1",
-				"FlagInit":"0",
-				"inverse":"0",
-				"minValue":"05",
-				"maxValue":"35",
-				"subTypeAuto":"1"
-			},
-			"isVisible":"1"
+				"name":"Valeur",
+				"Synonyme":["Value"],
+				"type":"info",
+				"subType":"numeric",
+				"isHistorized":"1",
+				"unite":"°C",
+				"configuration":{
+					"KnxObjectType":"9.001",
+					"FlagRead":"0",
+					"FlagWrite":"1",
+					"FlagTransmit":"0",
+					"FlagUpdate":"1",
+					"FlagInit":"0",
+					"inverse":"0",
+					"minValue":"05",
+					"maxValue":"35",
+					"subTypeAuto":"1"
+				},
+				"isVisible":"1"
 			}
 		]		
 	}

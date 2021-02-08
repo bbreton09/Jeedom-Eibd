@@ -1,7 +1,10 @@
 #!/bin/bash
 touch /tmp/compilation_eibd_in_progress
 echo 0 > /tmp/compilation_eibd_in_progress
+sudo pkill eibd  
 sudo pkill knxd  
+sudo echo " " > /var/log/knxd.log
+sudo chmod 777 /var/log/knxd.log
 echo 10 > /tmp/compilation_eibd_in_progress
 echo "*****************************************************************************************************"
 echo "*                                         Remove knxd                                               *"
@@ -26,7 +29,6 @@ sudo apt-get -qy install libev-dev
 sudo apt-get -qy install git-core
 sudo apt-get -qy install dpkg-buildpackage
 sudo apt-get -qy install cdb
-sudo apt-get -qy install git-core
 sudo apt-get -qy install debhelper
 sudo apt-get -qy install autoconf
 sudo apt-get -qy install automake
@@ -36,19 +38,16 @@ sudo apt-get -qy install libsystemd-daemon-dev
 sudo apt-get -qy install libsystemd-dev
 sudo apt-get -qy install dh-systemd
 sudo apt-get -qy install cmake
+sudo apt-get -qy install --no-install-recommends build-essential devscripts
 echo 30 > /tmp/compilation_eibd_in_progress
 echo "*****************************************************************************************************"
 echo "*                                      Installation de KnxD                                         *"
 echo "*****************************************************************************************************"
-sudo pkill eibd  
-sudo pkill knxd  
-sudo echo " " > /var/log/knxd.log
-sudo chmod 777 /var/log/knxd.log
 sudo mkdir /usr/local/src/knxd
 cd /usr/local/src/knxd
 sudo git clone https://github.com/knxd/knxd.git
 cd knxd
-git checkout stable
+sudo git checkout debian
 echo 40 > /tmp/compilation_eibd_in_progress
 sudo dpkg-buildpackage -b -uc -d
 echo 80 > /tmp/compilation_eibd_in_progress
@@ -56,10 +55,13 @@ cd /usr/local/src/knxd
 sudo dpkg -i knxd_*.deb knxd-tools_*.deb
 sudo usermod -a -G dialout knxd
 echo 99 > /tmp/compilation_eibd_in_progress
-sudo mkdir /etc/eibd/
-sudo chmod 777 /etc/eibd/
-sudo systemctl knxd.service stop
-sudo systemctl knxd.service disable
+sudo systemctl knxd stop
+sudo systemctl stop knxd.service
+sudo systemctl stop knxd.socket 
+sudo systemctl disable knxd.service
+sudo systemctl disable knxd.socket 
+sudo update-rc.d
+sudo chmod 777 /usr/bin/knxd
 sudo rm /tmp/compilation_eibd_in_progress
 echo "*****************************************************************************************************"
 echo "*                                       Installation terminé                                        *"

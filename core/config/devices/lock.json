@@ -1,11 +1,23 @@
 {
 	"lock":{
 		"name":"Serrure",
+		"category": {"heating": "0", "security": "1", "energy": "0", "light": "0", "automatism": "0", "multimedia": "0", "default": "0"},
+		"Synonyme":["Verrou","Lock"],
 		"isVisible":"1",
 		"isEnable":"1",
+        "category":{
+			"heating":"0",
+			"security":"1",
+			"energy":"0",
+			"light":"0",
+			"automatism":"0",
+			"multimedia":"0",
+			"default":"0"
+		},
 		"cmd":[
 			{
 				"name":"Etat",
+				"Synonyme":["State"],
 				"type":"info",
 				"subType":"string",
 				"isHistorized":"0",
@@ -26,27 +38,9 @@
 				},
 				"isVisible":"0"
 			},{
-				"name":"Toogle",
-				"SameCmd":"Toogle|Ouvrir|Fermer",
-				"type":"action",
-				"subType":"other",
-				"isHistorized":"0",
-				"configuration":{
-					"FlagInit":"0",
-					"FlagRead":"0",
-					"FlagTransmit":"0",
-					"FlagUpdate":"0",
-					"FlagWrite":"0",
-					"KnxObjectType":"1.001",
-					"inverse":"0",
-					"subTypeAuto":"1",
-					"noBatterieCheck":"0"
-				},
-				"value":"Etat",
-				"isVisible":"1"
-			},{
 				"name":"Ouvrir",
-				"SameCmd":"Toogle|Ouvrir|Fermer",
+				"Synonyme":["Open"],
+				"SameCmd":"Ouvrir|Fermer",
 				"type":"action",
 				"subType":"other",
 				"isHistorized":"0",
@@ -69,7 +63,8 @@
 				"isVisible":"0"
 			},{
 				"name":"Fermer",
-				"SameCmd":"Toogle|Ouvrir|Fermer",
+				"Synonyme":["Close"],
+				"SameCmd":"Ouvrir|Fermer",
 				"type":"action",
 				"subType":"other",
 				"isHistorized":"0",

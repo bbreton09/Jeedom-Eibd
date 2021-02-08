@@ -1,12 +1,15 @@
 {
     "teleinfo": {
 		"name":"Teleinfo",
+		"category": {"heating": "0", "security": "0", "energy": "1", "light": "0", "automatism": "0", "multimedia": "0", "default": "0"},
+		"Synonyme":[],
 		"isVisible":"1",
 		"isEnable":"1",
 		"cmd":
 		[
 			{
 				"name":"Tarif_1",
+				"Synonyme":[],
 				"logicalId":"255/255/255",
 				"type":"info",
 				"subType":"numeric",
@@ -24,6 +27,7 @@
 				"isVisible":"1"
 			},{
 				"name":"Tarif_2",
+				"Synonyme":[],
 				"logicalId":"255/255/255",
 				"type":"info",
 				"subType":"numeric",
@@ -41,6 +45,7 @@
 				"isVisible":"1"
 			},{
 				"name":"Tarif_3",
+				"Synonyme":[],
 				"logicalId":"255/255/255",
 				"type":"info",
 				"subType":"numeric",
@@ -57,6 +62,7 @@
 				"isVisible":"1"
 			},{
 				"name":"Vilidité",
+				"Synonyme":[],
 				"type":"info",
 				"subType":"numeric",
 				"unite":"kW/H",

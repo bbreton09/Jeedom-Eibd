@@ -1,88 +1,212 @@
-function searchSameCmd(eqLogic,index){
-	if (typeof(eqLogic.cmd[index].SameCmd) !== 'undefined'){
-      		var GAD='';
-		$('.CmdEqLogicTemplateAttr[data-l2key=SameCmd]').each(function(){
-			if($(this).val() == eqLogic.cmd[index].SameCmd){
-				GAD =  $('.CmdEqLogicTemplateAttr[data-l1key='+$(this).attr('data-l1key')+'][data-l2key=logicalId]').val();
-         			return GAD;
-			}
-         	});
-         	return GAD;
-	}
-	return $('.CmdEqLogicTemplateAttr[data-l1key='+index+'][data-l2key=logicalId]').value();									
-}
-$('.eqLogicAction[data-action=addByTemplate]').on('click', function () {
-  	bootbox.dialog({
-		title: "{{Ajout d'un équipement avec template}}",
-		message: $('<div>').load('index.php?v=d&modal=eibd.addByTemplate&plugin=eibd&type=eibd'),
-		buttons: {
-			"Annuler": {
-				className: "btn-default",
-				callback: function () {
-					//el.atCaret('insert', result.human);
-				}
-			},
-			success: {
-				label: "Valider",
-				className: "btn-primary",
-				callback: function () {
-					if($('.EqLogicTemplateAttr[data-l1key=template]').value() != "" && $('.EqLogicTemplateAttr[data-l1key=name]').value() != ""){
-						$.ajax({
-							type: 'POST',   
-							url: 'plugins/eibd/core/ajax/eibd.ajax.php',
-							data:
-							{
-								action: 'getTemplate',
-								template:$('.EqLogicTemplateAttr[data-l1key=template]').val()
-							},
-							dataType: 'json',
-							global: true,
-							error: function(request, status, error) {},
-							success: function(data) {
-								var eqLogic=data.result;
-								eqLogic.name=$('.EqLogicTemplateAttr[data-l1key=name]').value();
-								if (typeof(eqLogic.logicalId) === 'undefined')
-									eqLogic.logicalId=new Object();
-								eqLogic.logicalId=$('.EqLogicTemplateAttr[data-l1key=logicalId]').value();
-								if (typeof(eqLogic.object_id) === 'undefined')
-									eqLogic.object_id=new Object();
-								eqLogic.object_id=$('.EqLogicTemplateAttr[data-l1key=object_id]').value();
-								if (typeof(eqLogic.configuration) === 'undefined')
-									eqLogic.configuration=new Object();
-								eqLogic.configuration.typeTemplate=$('.EqLogicTemplateAttr[data-l1key=template]').value();
-								$.each(eqLogic.cmd,function(index, value){
-									eqLogic.cmd[index].logicalId=searchSameCmd(eqLogic,index);
-									if (typeof(eqLogic.cmd[index].value) !== 'undefined')
-										eqLogic.cmd[index].value="#["+$('.EqLogicTemplateAttr[data-l1key=object_id] option:selected').text()+"]["+eqLogic.name+"]["+eqLogic.cmd[index].value+"]#";
-								});
-								jeedom.eqLogic.save({
-									type: 'eibd',
-									eqLogics: [eqLogic],
-									error: function (error) {
-										$('#div_alert').showAlert({message: error.message, level: 'danger'});
-									},
-									success: function (_data) {
-										var vars = getUrlVars();
-										var url = 'index.php?';
-										for (var i in vars) {
-											if (i != 'id' && i != 'saveSuccessFull' && i != 'removeSuccessFull') {
-												url += i + '=' + vars[i].replace('#', '') + '&';
-											}
-										}
-										modifyWithoutSave = false;
-										url += 'id=' + _data.id + '&saveSuccessFull=1';
-										loadPage(url);
-									}
-								});
-							}
-						});
-					}
-				}
-			},
-		}
-	});
+$('.eqLogicAction[data-action=Thumbnail]').off().on('click', function () {
+	$('.eqLogicThumbnail').show();	
+	$('.eqLogicThumbnailContainer').packery();
+	$('.eqLogicList').hide();  	
 });
-$('#bt_healthEibd').off().on('click', function () {
+$('.eqLogicAction[data-action=List]').off().on('click', function () {
+	$('.eqLogicThumbnail').hide();
+	$('.eqLogicList').show();
+});
+$('.eqLogicDisplayAttr[data-l1key=name]').off().on('click', function () {
+	var _el = $(this);
+	var id = $(this).closest('.eqLogicDisplay').attr('data-eqLogic_id');
+	jeedom.eqLogic.byId({id:id,success:function(eqLogic){
+		bootbox.prompt({
+			size: 'small',
+			value : _el.closest('.eqLogicDisplay').find('.eqLogicDisplayAttr[data-l1key=name]').value(),
+			title:'{{Nom de l\'équipement ?}}',
+			callback : function (result) {
+				if (result !== null) {
+					eqLogic.name = result;
+					jeedom.eqLogic.save({
+						type: eqType,
+						eqLogics: [eqLogic],
+						error: function (error) {
+							$('#div_alert').showAlert({message: error.message, level: 'danger'});
+						},
+						success: function (_data) {
+							_el.text(_data.name)
+							$('.eqLogicDisplayCard[data-eqLogic_id='+id+'] .name strong').text(_data.name);
+							$('#table_eqLogicList').trigger('update');
+						}
+					});
+				}
+			}
+		});
+	}});
+});
+$('.eqLogicDisplayAttr[data-l1key=logicalId]').off().on('click', function () {
+	var _el = $(this);
+	var id = $(this).closest('.eqLogicDisplay').attr('data-eqLogic_id');
+	jeedom.eqLogic.byId({id:id,success:function(eqLogic){
+		bootbox.prompt({
+			size: 'small',
+			value : _el.closest('.eqLogicDisplay').find('.eqLogicDisplayAttr[data-l1key=logicalId]').value(),
+			title:'{{Identifiant de l\'équipement ?}}',
+			callback : function (result) {
+				if (result !== null) {
+					eqLogic.logicalId = result;
+					jeedom.eqLogic.save({
+						type: eqType,
+						eqLogics: [eqLogic],
+						error: function (error) {
+							$('#div_alert').showAlert({message: error.message, level: 'danger'});
+						},
+						success: function (_data) {
+							_el.text(_data.logicalId)
+							$('#table_eqLogicList').trigger('update');
+						}
+					});
+				}
+			}
+		});
+	}});
+});
+$('.eqLogicDisplayAttr[data-l1key=object]').off().on('click', function () {
+	var _el = $(this);
+	var id = $(this).closest('.eqLogicDisplay').attr('data-eqLogic_id');
+	jeedom.eqLogic.byId({id:id,success:function(eqLogic){
+		jeedom.object.all({success:function(objects){ 
+			var SelectHtml = $('<select>');
+			$.each(objects, function(key, object){
+				var option = $('<option>').attr('value',object.id);
+				if($.trim(_el.text()) == $.trim(object.name))
+					option.attr('selected',true);
+				SelectHtml.append(option.append(object.name));
+			});
+			bootbox.dialog({
+				title: "{{Nom de la nouvelle commande}}",
+				message: SelectHtml,
+				buttons: {
+					"Annuler": {
+						className: "btn-default",
+						callback: function () {
+						}
+					},
+					success: {
+						label: "Valider",
+						className: "btn-primary",
+						callback: function () {
+							eqLogic.object_id = $(this).find('select').val();
+							var name = $(this).find('select option[value='+eqLogic.object_id+']').text();
+							jeedom.eqLogic.save({
+								type: eqType,
+								eqLogics: [eqLogic],
+								error: function (error) {
+								$('#div_alert').showAlert({message: error.message, level: 'danger'});
+								},
+								success: function (_data) {
+									var object= objects[_data.object_id];
+									$.each(objects, function(key, object){
+										if (object.id == _data.object_id) {
+											var ObjectHtml=$('<span class="label">');
+											if (object.configuration.useCustomColor) {
+												ObjectHtml.css('background-color',object.display.tagColor);
+												ObjectHtml.css('color',object.display.tagTextColor);
+												ObjectHtml.append(object.display.icon);
+												ObjectHtml.append(' '+object.name);
+											}else{
+												ObjectHtml.addClass('labelObjectHuman');
+												ObjectHtml.append(object.display.icon);
+												ObjectHtml.append(' '+object.name);		
+											}
+											_el.html(ObjectHtml.prop('outerHTML'));
+											$('.eqLogicDisplayCard[data-eqLogic_id='+id+'] .name span').remove();
+											ObjectHtml.insertBefore($('.eqLogicDisplayCard[data-eqLogic_id='+id+'] .name br'));
+											$('#table_eqLogicList').trigger('update');
+										}
+									});
+								}
+							});
+						}
+					},
+				}
+			});
+		}});
+  	}});
+});
+$('.eqLogicDisplayAttr[data-l1key=category]').off().on('click', function () {
+	var _el = $(this);
+	var id = $(this).closest('.eqLogicDisplay').attr('data-eqLogic_id');
+	jeedom.eqLogic.byId({id:id,success:function(eqLogic){
+		if(_el.attr('data-enable') == "1")
+			eqLogic.category[_el.attr('data-l2key')] = false;
+		else
+			eqLogic.category[_el.attr('data-l2key')] = true;
+		jeedom.eqLogic.save({
+			type: eqType,
+			eqLogics: [eqLogic],
+			error: function (error) {
+				$('#div_alert').showAlert({message: error.message, level: 'danger'});
+			},
+			success: function (_data) {
+				if(_data.category[_el.attr('data-l2key')])
+					_el.removeClass('label-danger').addClass('label-success');
+				else
+					_el.removeClass('label-success').addClass('label-default');
+				_el.attr('data-enable',_data.category[_el.attr('data-l2key')]);
+				$('#table_eqLogicList').trigger('update');
+			}
+		});
+	}});
+});
+$('.eqLogicDisplayAttr[data-l1key=isEnable]').off().on('click', function () {
+	var _el = $(this);
+	var id = $(this).closest('.eqLogicDisplay').attr('data-eqLogic_id');
+	jeedom.eqLogic.byId({id:id,success:function(eqLogic){
+		if(_el.attr('data-enable') == "1")
+			eqLogic.isEnable = false;
+		else
+			eqLogic.isEnable = true;
+		jeedom.eqLogic.save({
+			type: eqType,
+			eqLogics: [eqLogic],
+			error: function (error) {
+				$('#div_alert').showAlert({message: error.message, level: 'danger'});
+			},
+			success: function (_data) {
+				if(_data.isEnable){
+					_el.removeClass('label-danger').addClass('label-success').text("{{Oui}}");
+					$('.eqLogicDisplayCard[data-eqLogic_id='+id+']').removeClass('disableCard');
+				}else{
+					_el.removeClass('label-success').addClass('label-danger').text("{{Non}}");
+					$('.eqLogicDisplayCard[data-eqLogic_id='+id+']').addClass('disableCard');
+				}
+				_el.attr('data-enable',_data.isEnable);
+				$('#table_eqLogicList').trigger('update');
+			}
+		});
+	}});
+});
+$('.eqLogicDisplayAttr[data-l1key=isVisible]').off().on('click', function () {
+	var _el = $(this);
+	var id = $(this).closest('.eqLogicDisplay').attr('data-eqLogic_id');
+	jeedom.eqLogic.byId({id:id,success:function(eqLogic){
+		if(_el.attr('data-enable') == "1")
+			eqLogic.isVisible = false;
+		else
+			eqLogic.isVisible = true;
+		jeedom.eqLogic.save({
+			type: eqType,
+			eqLogics: [eqLogic],
+			error: function (error) {
+				$('#div_alert').showAlert({message: error.message, level: 'danger'});
+			},
+			success: function (_data) {
+				if(_data.isVisible)
+					_el.removeClass('label-danger').addClass('label-success').text("{{Oui}}");
+				else
+					_el.removeClass('label-success').addClass('label-danger').text("{{Non}}");
+				_el.attr('data-enable',_data.isVisible);
+				$('#table_eqLogicList').trigger('update');
+			}
+		});
+	}});
+});
+
+
+$("#table_cmd").sortable({axis: "y", cursor: "move", items: ".cmd", placeholder: "ui-state-highlight", tolerance: "intersect", forcePlaceholderSize: true});
+$('.eqLogicAction[data-action=gotoHealth]').off().on('click', function () {
   	bootbox.dialog({
 		title: "{{Santé des équpements KNX}}",
 		size: "large",
@@ -90,23 +214,17 @@ $('#bt_healthEibd').off().on('click', function () {
 		
 	});
 });
-$('.log').off().on('click', function() {
-  	bootbox.dialog({
-		title: "{{log}}",
-		message: $('<div>').load('index.php?v=d&modal=eibd.log&plugin=eibd&type=eibd'),
-		
-	});
-});
-$('.GadInconue').off().on('click', function() {
+$('.eqLogicAction[data-action=gotoAdressGroup]').off().on('click', function () {
   	bootbox.dialog({
 		title: "{{Gestion des adresses de groupe}}",
+		size: "large",
 		message: $('<div>').load('index.php?v=d&modal=eibd.gadInconnue&plugin=eibd&type=eibd'),
 		onEscape:  function () {
 			clearTimeout(KnxGadInconueRefresh);			
 		}		
 	});
 });
-$('.BusMoniteur').off().on('click', function() {
+$('.eqLogicAction[data-action=gotoBusMoniteur]').off().on('click', function () {	
   	bootbox.dialog({
 		title: "{{Moniteur de Bus}}",
 		size: "large",
@@ -114,13 +232,22 @@ $('.BusMoniteur').off().on('click', function() {
 		
 	});
 });
-$('body').on('click','.bt_selectGadInconnue', function () {
-	var SelectAddr=$(this).closest('body').find('.form-control[data-l1key=logicalId]').val();	
+$('.eqLogicAction[data-action=gotoLog]').off().on('click', function () {	
+  	bootbox.dialog({
+		title: "{{Log du démon}}",
+		size: "large",
+		message: $('<div>').load('index.php?v=d&modal=eibd.log&plugin=eibd&type=eibd'),
+		
+	});
+});
+$('body').off('click','.bt_selectGadInconnue').on('click','.bt_selectGadInconnue', function () {
+	var AddrPhy=$(this).closest('body').find('.form-control[data-l1key=logicalId]');
 	var SelectDpt=$(this).closest('.form-group').parent().find('.form-control[data-l2key=KnxObjectType]').val();	
 	var input=$(this).closest('.input-group').find('input');
 	bootbox.dialog({
 		title: "{{Choisir un Gad}}",
-		message: $('<div>').load('index.php?v=d&modal=eibd.gadInconnue&plugin=eibd&type=eibd&SelectAddr='+SelectAddr+'&SelectDpt='+SelectDpt+'&param'),
+		size: "large",
+		message: $('<div>').load('index.php?v=d&modal=eibd.gadInconnue&plugin=eibd&type=eibd&SelectAddr='+AddrPhy.val()+'&SelectDpt='+SelectDpt+'&param'),
 		onEscape:  function () {
 			clearTimeout(KnxGadInconueRefresh);			
 		},
@@ -137,15 +264,12 @@ $('body').on('click','.bt_selectGadInconnue', function () {
 				callback: function () {
 					clearTimeout(KnxGadInconueRefresh);		
 					input.val(SelectGad);
+					AddrPhy.val(SelectAddr);
 				}
 			},
 		}
 	});
 });
-$("#table_cmd").sortable({axis: "y", cursor: "move", items: ".cmd", placeholder: "ui-state-highlight", tolerance: "intersect", forcePlaceholderSize: true});
-$(".eqLogicAttr[data-l1key=configuration][data-l2key=device]").html($(".eqLogicAttr[data-l1key=configuration][data-l2key=device] option").sort(function (a, b) {
-	return a.text == b.text ? 0 : a.text < b.text ? -1 : 1
-}));
 function DptUnit(Dpt)	{
 	var result;
 	$.each(AllDpt, function(DptKeyGroup, DptValueGroup){
@@ -199,13 +323,13 @@ function DptOption(Dpt,div){
 						div.append($('<label>')
 								   .text(Optionvalue)
 								   .append($('<sup>')
-									   .append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+									   .append($('<i class="fas fa-question-circle tooltips">')
 										   .attr('title',Optionvalue))));
 						div.append($('<div class="input-group">')
-								.append($('<input class="cmdAttr form-control input-sm" data-l1key="configuration" data-l2key="option" data-l3key="'+Optionvalue+'">'))
-								.append($('<span class="input-group-btn">')
+								.append($('<input class="cmdAttr form-control input-sm roundedLeft" data-l1key="configuration" data-l2key="option" data-l3key="'+Optionvalue+'">'))
+								.append($('<span class="input-group-btnroundedRight ">')
 									.append($('<a class="btn btn-success btn-sm bt_selectCmdExpression" data-type="">')
-										.append($('<i class="fa fa-list-alt">')))));
+										.append($('<i class="fas fa-list-alt">')))));
 					}
 				});
 			}
@@ -228,19 +352,24 @@ function DptListSelect(Dpt){
 	});
 	return DptListSelect;
 }
-function DptValue(Dpt){
-  	var DptValues=$('<div>');
-  	DptValues.append($('<option>').attr('value','').text('{{Imposer une valeur}}'));
+function DptValue(Dpt, _el){
 	$.each(AllDpt, function(DptKeyGroup, DptValueGroup){
 		$.each(DptValueGroup, function(DptKey, DptValue){
 			if (DptKey==Dpt){
-				$.each(DptValue.Valeurs, function(keyValeurs, Valeurs){
-					DptValues.append($('<option>').attr('value',keyValeurs).text(Valeurs));
-				});
+				if(DptValue.Valeurs.length >0){
+  					var Valeur = _el.val();
+					var DptValues=$('<select class="cmdAttr form-control input-sm" data-l1key="configuration" data-l2key="KnxObjectValue">');
+					DptValues.append($('<option>').attr('value','').text('{{Imposer une valeur}}'));
+					$.each(DptValue.Valeurs, function(keyValeurs, Valeurs){
+						DptValues.append($('<option>').attr('value',keyValeurs).text(Valeurs));
+					});
+					_el.parent().html(DptValues);		
+					_el.find('option[value="'+Valeur+'"]').prop('selected', true);
+							
+				}
 			}
 		});
 	});
-	return DptValues.children();
 }
 function OptionSelectDpt(){
   var DptSelectorOption=$('<div>');
@@ -260,8 +389,8 @@ function addCmdToTable(_cmd) {
 	}
 	var tr =$('<tr class="cmd" data-cmd_id="' + init(_cmd.id) + '">');
   	tr.append($('<td>')
-		.append($('<i class="fa fa-minus-circle pull-right cmdAction cursor" data-action="remove">'))
-		.append($('<i class="fa fa-arrows-v pull-left cursor bt_sortable" style="margin-top: 9px;">')));
+		.append($('<i class="fas fa-minus-circle pull-right cmdAction cursor" data-action="remove">'))
+		.append($('<i class="fas fa-arrows-alt-v pull-left cursor bt_sortable">')));
 	tr.append($('<td>')
 			.append($('<input type="hidden" class="cmdAttr form-control input-sm" data-l1key="id">'))
 			.append($('<input class="cmdAttr form-control input-sm" data-l1key="name" value="' + init(_cmd.name) + '" placeholder="{{Name}}" title="Name">')));
@@ -270,7 +399,7 @@ function addCmdToTable(_cmd) {
 			.append($('<label>')
 				.text('{{Data Point Type}}')
 				.append($('<sup>')
-					.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+					.append($('<i class="fas fa-question-circle tooltips">')
 						.attr('title','Selectionner le type de data KNX'))))
 			.append($('<select class="cmdAttr form-control input-sm" data-l1key="configuration" data-l2key="KnxObjectType">')
 				.append(OptionSelectDpt())))
@@ -278,13 +407,13 @@ function addCmdToTable(_cmd) {
 			.append($('<label>')
 				.text('{{Groupe d\'adresse}}')
 				.append($('<sup>')
-					.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+					.append($('<i class="fas fa-question-circle tooltips">')
 						.attr('title','Saisisez l\'adresse de groupe de votre commande KNX'))))
 			.append($('<div class="input-group">')
-				.append($('<input class="cmdAttr form-control input-sm" data-l1key="logicalId" placeholder="{{Adresse de groupe}}" title="{{Adresse de groupe}}">'))
-					.append($('<span class="input-group-btn">')
+				.append($('<input class="cmdAttr form-control input-sm roundedLeft" data-l1key="logicalId" placeholder="{{Adresse de groupe}}" title="{{Adresse de groupe}}">'))
+					.append($('<span class="input-group-btn roundedRight">')
 						.append($('<a class="btn btn-success btn-sm bt_selectGadInconnue">')
-							.append($('<i class="fa fa-list-alt">')))))));
+							.append($('<i class="fas fa-list-alt">')))))));
 		
 		
 	tr.append($('<td>')
@@ -294,23 +423,23 @@ function addCmdToTable(_cmd) {
 					.append($('<input type="checkbox" class="cmdAttr checkbox-inline" data-size="mini" data-label-text="{{Lecture}}" data-l1key="configuration" data-l2key="FlagRead"/>'))
 					.append('{{Lecture}}')
 					.append($('<sup>')
-						.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
-							.attr('title','{{Si actif, jeedom repondera a un télégramme de type "READ", en envoyant sur le bus la valeur actuelle de l\’objet.'))))))
+						.append($('<i class="fas fa-question-circle tooltips">')
+							.attr('title','{{Si actif, jeedom repondera a un télégramme de type "READ", en envoyant sur le bus la valeur actuelle de l\’objet.}}'))))))
 		 .append($('<div>')
 			.append($('<span>')
 				.append($('<label class="checkbox-inline">')
 					.append($('<input type="checkbox" class="cmdAttr checkbox-inline" data-size="mini" data-label-text="{{Ecriture}}" data-l1key="configuration" data-l2key="FlagWrite"/>'))
 					.append('{{Ecriture}}')
 					.append($('<sup>')
-						.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+						.append($('<i class="fas fa-question-circle tooltips">')
 							.attr('title','{{La valeur de cet objet sera modifiée si un télégramme de type "WRITE" est vue sur le bus monitor}}'))))))
 		  .append($('<div>')
 			.append($('<span>')
 				.append($('<label class="checkbox-inline">')
-					.append($('<input type="checkbox" class="cmdAttr checkbox-inline" data-size="mini" data-label-text="{{Transmetre}}" data-l1key="configuration" data-l2key="FlagTransmit"/>'))
-					.append('{{Transmetre}}')
+					.append($('<input type="checkbox" class="cmdAttr checkbox-inline" data-size="mini" data-label-text="{{transmettre}}" data-l1key="configuration" data-l2key="FlagTransmit"/>'))
+					.append('{{transmettre}}')
 					.append($('<sup>')
-						.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+						.append($('<i class="fas fa-question-circle tooltips">')
 							.attr('title','{{Si la valeur de cet objet venait à être modifiée, Jeedom emmetera automatiquement un télégramme de type "WRITE" contenant la nouvelle valeur de l\’objet}}'))))))
 		.append($('<div>')
 			.append($('<span>')
@@ -318,7 +447,7 @@ function addCmdToTable(_cmd) {
 					.append($('<input type="checkbox" class="cmdAttr checkbox-inline" data-size="mini" data-label-text="{{Mise-à-jour}}" data-l1key="configuration" data-l2key="FlagUpdate"/>'))
 					.append('{{Mise-à-jour}}')
 					.append($('<sup>')
-						.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+						.append($('<i class="fas fa-question-circle tooltips">')
 						.attr('title','{{Si un autre participant répond à un télégramme de type "READ" avec une valeur différente, mettre a jour la valeur par celle lue sur la réponse.}}'))))))
 		
 		.append($('<div>')
@@ -327,7 +456,7 @@ function addCmdToTable(_cmd) {
 					.append($('<input type="checkbox" class="cmdAttr checkbox-inline" data-size="mini" data-label-text="{{Initialiser}}" data-l1key="configuration" data-l2key="FlagInit"/>'))
 					.append('{{Initialiser}}')
 					.append($('<sup>')
-						.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+						.append($('<i class="fas fa-question-circle tooltips">')
 						.attr('title','{{Au démarrage, envoyer un télégramme de type "READ" pour initiliser une valeur initial}}')))))));	
 	tr.append($('<td>')
 		.append($('<div>')
@@ -336,34 +465,35 @@ function addCmdToTable(_cmd) {
 					.append($('<input type="checkbox" class="cmdAttr checkbox-inline" data-size="mini" data-label-text="{{Inverser}}" data-l1key="configuration" data-l2key="inverse"/>'))
 					.append('{{Inverser}}')
 					.append($('<sup>')
-						.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+						.append($('<i class="fas fa-question-circle tooltips">')
 							.attr('title','Souhaitez vous inverser l\'état de la valeur'))))))
 		.append($('<div class="RetourEtat">')
 			.append($('<label>')
 				.text('{{Retour d\'état}}')
 				.append($('<sup>')
-					.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+					.append($('<i class="fas fa-question-circle tooltips">')
 					.attr('title','Choisissez un objet jeedom contenant la valeur de votre commande'))))
 			.append($('<div class="input-group">')
-				.append($('<input class="cmdAttr form-control input-sm" data-l1key="value">'))
-				.append($('<span class="input-group-btn">')
+				.append($('<input class="cmdAttr form-control input-sm roundedLeft" data-l1key="value">'))
+				.append($('<span class="input-group-btn roundedRight">')
 					.append($('<a class="btn btn-success btn-sm bt_selectCmdExpression" data-type="info" id="value">')
-						.append($('<i class="fa fa-list-alt">'))))))
+						.append($('<i class="fas fa-list-alt">'))))))
 		  .append($('<div class="option">'))
 		.append($('<div class="ValeurMinMax">')
 				.append($('<label>')
 					.text('{{Valeur Min et Max}}')
 					.append($('<sup>')
-						.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+						.append($('<i class="fas fa-question-circle tooltips">')
 						.attr('title','Saisisez dans ses champs la valeur minimum et maximum de votre controle'))))
 				.append($('<div class="input-group">')
-			.append($('<input class="tooltips cmdAttr form-control input-sm" data-l1key="configuration" data-l2key="minValue" placeholder="{{Min}}" title="{{Min}}" >'))
-			.append($('<input class="tooltips cmdAttr form-control input-sm" data-l1key="configuration" data-l2key="maxValue" placeholder="{{Max}}" title="{{Max}}" >'))))		
+					.append($('<input class="cmdAttr form-control input-sm" data-l1key="configuration" data-l2key="minValue" placeholder="{{Min}}" title="{{Min}}" >')))
+				.append($('<div class="input-group">')
+					.append($('<input class="cmdAttr form-control input-sm" data-l1key="configuration" data-l2key="maxValue" placeholder="{{Max}}" title="{{Max}}" >'))))		
 		.append($('<div class="ValeurUnite">')
 			.append($('<label>')
 				.text('{{Unitée de cette commande}}')
 				.append($('<sup>')
-					.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+					.append($('<i class="fas fa-question-circle tooltips">')
 					.attr('title','Saisisez l\'unitée de cette commande'))))
 			.append($('<div class="input-group">')
 				.append($('<input class="cmdAttr form-control input-sm" data-l1key="unite" placeholder="{{Unitée}}" title="Unitée">'))))
@@ -371,7 +501,7 @@ function addCmdToTable(_cmd) {
 			.append($('<label>')
 				.text('{{Valeur de la liste}}')
 				.append($('<sup>')
-					.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+					.append($('<i class="fas fa-question-circle tooltips">')
 					.attr('title','Saisisez les differentes valeurs de cette liste'))))
 			.append($('<div class="input-group">')
 				.append($('<input class="cmdAttr form-control input-sm" data-l1key="configuration" data-l2key="listValue" placeholder="{{Saisisez les differentes valeurs de cette liste séparer par |}}" title="Valeur de liste">'))))
@@ -379,11 +509,10 @@ function addCmdToTable(_cmd) {
 			.append($('<label>')
 				.text('{{Valeur figer de cette commande}}')
 				.append($('<sup>')
-					.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+					.append($('<i class="fas fa-question-circle tooltips">')
 					.attr('title','Choisissez, si vous le souhaitez la valeur fixe de votre commande'))))
 			.append($('<div class="input-group">')
-				.append($('<select class="cmdAttr form-control input-sm" data-l1key="configuration" data-l2key="KnxObjectValue">')
-					.append(DptValue(init(_cmd.configuration.KnxObjectType)))))));
+				.append($('<input class="cmdAttr form-control input-sm" data-l1key="configuration" data-l2key="KnxObjectValue" placeholder="{{Valeur par défaut}}" title="{{Valeur par défaut}}">')))));
 	tr.append($('<td>')	
 		.append($('<span class="type" type="' + init(_cmd.type) + '">')
 			.append(jeedom.cmd.availableType()))
@@ -392,28 +521,28 @@ function addCmdToTable(_cmd) {
 				.append($('<input type="checkbox" class="cmdAttr checkbox-inline" data-size="mini" data-label-text="{{Sous type automatique}}"  data-l1key="configuration"  data-l2key="subTypeAuto" checked/>'))
 				.append('{{Sous type automatique}}')
 				.append($('<sup>')
-					.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+					.append($('<i class="fas fa-question-circle tooltips">')
 						.attr('title','Laissé Jeedom choisir le sous type')))))
 		.append($('<span class="subType" subType="'+init(_cmd.subType)+'">')));
 	var parmetre=$('<td>');
 	if (is_numeric(_cmd.id)) {
 		parmetre.append($('<a class="btn btn-default btn-xs cmdAction" data-action="test">')
-			.append($('<i class="fa fa-rss">')
+			.append($('<i class="fas fa-rss">')
 				.text('{{Tester}}')));
 	}
 	parmetre.append($('<a class="btn btn-default btn-xs cmdAction tooltips" data-action="configure">')
-		.append($('<i class="fa fa-cogs">')));
+		.append($('<i class="fas fa-cogs">')));
 	parmetre.append($('<a class="btn btn-default btn-xs cmdAction tooltips" data-action="copy" title="{{Dupliquer}}">')
-		.append($('<i class="fa fa-files-o">')));
+		.append($('<i class="fas fa-copy">')));
 	parmetre.append($('<a class="btn btn-default btn-xs cmdAction tooltips bt_read">')
-		.append($('<i class="fa fa-rss">')
+		.append($('<i class="fas fa-rss">')
 			.text('{{Read}}')));
 	parmetre.append($('<div class="CycliqueSend">')
 		.append($('<span>')
 			.append($('<label>')
 				.append('{{Lecture/Ecriture Cyclique}}')
 				.append($('<sup>')
-					.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+					.append($('<i class="fas fa-question-circle tooltips">')
 						.attr('title','{{Cette fonction permet d\'executer la commande ou de lire la valeur de maniere cyclique.}}')))
 			 .append($('<div class="input-group">')
 				 .append($('<select class="cmdAttr form-control input-sm" data-l1key="configuration" data-l2key="CycliqueSend"/>')
@@ -437,7 +566,7 @@ function addCmdToTable(_cmd) {
 				.append($('<input type="checkbox" class="cmdAttr checkbox-inline" data-size="mini" data-label-text="{{Historiser}}" data-l1key="isHistorized" checked/>'))
 				.append('{{Historiser}}')
 				.append($('<sup>')
-					.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+					.append($('<i class="fas fa-question-circle tooltips">')
 					.attr('title','Souhaitez vous Historiser les changements de valeur'))))));
 	parmetre.append($('<div>')
 		.append($('<span>')
@@ -445,7 +574,7 @@ function addCmdToTable(_cmd) {
 				.append($('<input type="checkbox" class="cmdAttr checkbox-inline" data-size="mini" data-label-text="{{Afficher}}" data-l1key="isVisible" checked/>'))
 				.append('{{Afficher}}')
 				.append($('<sup>')
-					.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+					.append($('<i class="fas fa-question-circle tooltips">')
 					.attr('title','Souhaitez vous afficher cette commande sur le dashboard'))))));
 	parmetre.append($('<div>')
 		.append($('<span>')
@@ -453,10 +582,11 @@ function addCmdToTable(_cmd) {
 				.append($('<input type="checkbox" class="cmdAttr checkbox-inline" data-size="mini" data-label-text="{{Niveau Batterie}}" data-l1key="configuration" data-l2key="noBatterieCheck"/>'))
 				.append('{{Niveau Batterie}}')
 				.append($('<sup>')
-					.append($('<i class="fa fa-question-circle tooltips" style="font-size : 1em;color:grey;">')
+					.append($('<i class="fas fa-question-circle tooltips">')
 						.attr('title','Activer cette option uniquement si votre équipement est sur batterie. Ce groupe d\'adresse correspond au niveau de batterie'))))));
 	tr.append(parmetre);
 	$('#table_cmd tbody').append(tr);
+	DptValue(_cmd.configuration.KnxObjectType,$('#table_cmd tbody tr:last').find('.cmdAttr[data-l2key=KnxObjectValue]'));
 	DptOption(_cmd.configuration.KnxObjectType,$('#table_cmd tbody tr:last').find('.option'));
 	$('.bt_selectCmdExpression').off().on('click',function() {
 		var el=$(this).closest('.input-group').find('.cmdAttr');
@@ -484,14 +614,14 @@ function addCmdToTable(_cmd) {
 			global: false,
 			error: function(request, status, error) {},
 			success: function(data) {
-				if (!data.result)
+				if (data.result === false)
 					$('#div_alert').showAlert({message: 'Aucun message recu', level: 'error'});
 				else
-					$('#div_alert').showAlert({message: 'Message recu', level: 'success'});
-				}
+					$('#div_alert').showAlert({message: 'Message recu :' +data.result, level: 'success'});
+			}
 		});
 	});
-	$('.cmdAttr[data-l1key=logicalId]').off().on('keyup', function() {
+	/*$('.cmdAttr[data-l1key=logicalId]').off().on('keyup', function() {
 		var valeur= $(this).val();
 		var Gad=valeur.split('/');
 		if(Gad.length < parseInt(GadLevel)){
@@ -505,42 +635,18 @@ function addCmdToTable(_cmd) {
 		if(valeur.substr(-1) =='//' && Gad.length == parseInt(data.result))
 			valeur.substring(0,-1);
 		$(this).val(valeur);
-	}); 
+	}); */
 	$('#table_cmd tbody tr:last').setValues(_cmd, '.cmdAttr');	
 	jeedom.cmd.changeType($('#table_cmd tbody tr:last'), init(_cmd.subType));
 }
-$('.Template[data-action=add]').off().on('click', function () {
-	if($('.eqLogicAttr[data-l1key=configuration][data-l2key=typeTemplate]').val()!=""){
-		$('.eqLogicAction[data-action=save]').trigger('click');
-		$.ajax({
-			type: 'POST',   
-			url: 'plugins/eibd/core/ajax/eibd.ajax.php',
-			data:
-			{
-				action: 'AppliTemplate',
-				id:$('.eqLogicAttr[data-l1key=id]').val(),
-				template:$('.eqLogicAttr[data-l1key=configuration][data-l2key=typeTemplate]').val()
-			},
-			dataType: 'json',
-			global: true,
-			error: function(request, status, error) {},
-			success: function(data) {
-				window.location.reload();
-			}
-		});
-	}
-});
-$('body').on('change','.cmdAttr[data-l1key=configuration][data-l2key=KnxObjectType]', function() {
+$('body').off('change','.cmdAttr[data-l1key=configuration][data-l2key=KnxObjectType]').on('change','.cmdAttr[data-l1key=configuration][data-l2key=KnxObjectType]', function() {
 	DptOption($(this).val(),$(this).closest('.cmd').find('.option'));
 	if ($(this).closest('.cmd').find('.cmdAttr[data-l1key=unite]').val() == '')
 		$(this).closest('.cmd').find('.cmdAttr[data-l1key=unite]').val(DptUnit($(this).val()));
-	var valeur =$(this).closest('.cmd').find('.cmdAttr[data-l1key=configuration][data-l2key=KnxObjectValue]').val();
-	$(this).closest('.cmd').find('.cmdAttr[data-l1key=configuration][data-l2key=KnxObjectValue]').empty();
-	$(this).closest('.cmd').find('.cmdAttr[data-l1key=configuration][data-l2key=KnxObjectValue]').append(DptValue($(this).val()));
-	$(this).closest('.cmd').find('.cmdAttr[data-l1key=configuration][data-l2key=KnxObjectValue] option[value="'+valeur+'"]').prop('selected', true);
+	DptValue($(this).val(),$(this).closest('.cmd').find('.cmdAttr[data-l2key=KnxObjectValue]'));
 	$(this).closest('.cmd').find('.cmdAttr[data-l1key=subType]').trigger('change');
 }); 
-$('body').on('change','.cmdAttr[data-l1key=type]', function() {
+$('body').off('change','.cmdAttr[data-l1key=type]').on('change','.cmdAttr[data-l1key=type]', function() {
 	switch ($(this).val()){
 		case "info":
 			$(this).closest('.cmd').find('.RetourEtat').hide();
@@ -559,7 +665,7 @@ $('body').on('change','.cmdAttr[data-l1key=type]', function() {
 		$(this).closest('.cmd').find('.cmdAttr[data-l1key=subType]').trigger('change');
 	}.bind(this), 500);
 });			
-$('body').on('change','.cmdAttr[data-l1key=subType]', function() {
+$('body').off('change','.cmdAttr[data-l1key=subType]').on('change','.cmdAttr[data-l1key=subType]', function() {
 	var Dpt=$(this).closest('.cmd').find('.cmdAttr[data-l1key=configuration][data-l2key=KnxObjectType]').val();
 	var type=$(this).closest('.cmd').find('.cmdAttr[data-l1key=type]').val();
 	var value=$(this).val();
@@ -570,6 +676,17 @@ $('body').on('change','.cmdAttr[data-l1key=subType]', function() {
 	}
 	switch (value){
 		case "slider":
+			$(this).closest('.cmd').find('.ValeurMinMax').show();
+			$(this).closest('.cmd').find('.ValeurUnite').hide();
+			$(this).closest('.cmd').find('.ValeurDefaut').hide();
+			$(this).closest('.cmd').find('.listValue').hide();
+			$(this).closest('.cmd').find('.cmdAttr[data-l1key=configuration][data-l2key=inverse]')
+				.closest('.input-group').parent().show();
+			if($(this).closest('.cmd').find('.cmdAttr[data-l1key=configuration][data-l2key=minValue]').val() == "")
+				$(this).closest('.cmd').find('.cmdAttr[data-l1key=configuration][data-l2key=minValue]').val(DptMin(Dpt));
+			if($(this).closest('.cmd').find('.cmdAttr[data-l1key=configuration][data-l2key=maxValue]').val() == "")
+				$(this).closest('.cmd').find('.cmdAttr[data-l1key=configuration][data-l2key=maxValue]').val(DptMax(Dpt));
+		break;
 		case "numeric":
 			$(this).closest('.cmd').find('.ValeurMinMax').show();
 			$(this).closest('.cmd').find('.ValeurUnite').show();
@@ -618,7 +735,7 @@ $('body').on('change','.cmdAttr[data-l1key=subType]', function() {
 		break;
 	}
 });			
-$('body').on('change','.cmdAttr[data-l1key=configuration][data-l2key=subTypeAuto]', function() {
+$('body').off('change','.cmdAttr[data-l1key=configuration][data-l2key=subTypeAuto]').on('change','.cmdAttr[data-l1key=configuration][data-l2key=subTypeAuto]', function() {
 	if($(this).is(':checked')){
 		$(this).closest('.cmd').find('.cmdAttr[data-l1key=subType]').attr('disabled',true);
 	}else

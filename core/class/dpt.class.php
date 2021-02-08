@@ -1,22 +1,21 @@
 <?php
+require_once dirname(__FILE__) . '/DataPointType/EIS14_ABB_ControlAcces.class.php';
 class Dpt{
 	public function DptSelectEncode ($dpt, $value, $inverse=false, $option=null){
 		$All_DPT=self::All_DPT();
-		$type= substr($dpt,0,strpos( $dpt, '.' ));
-		switch ($type){
+		switch (explode('.',$dpt)[0]){
 			case "1":
 				if ($value != 0 && $value != 1)
 					{
 					$ValeurDpt=$All_DPT["Boolean"][$dpt]['Valeurs'];
 					$value = array_search($value, $ValeurDpt); 
 					}
-				if ($inverse)
-					{
+				if ($inverse){
 					if ($value == 0 )
 						$value = 1;
 					else
 						$value = 0;
-					}
+				}
 				$data= $value;
 				break;
 			case "2":
@@ -41,6 +40,8 @@ class Dpt{
 						$value = round(intval($value) * 255 / 360);
 						break;
 					case "5.004":
+						if ($inverse)
+							$value=255-$value;
 						$value = round(intval($value) * 255);
 						break;
 				}
@@ -131,18 +132,22 @@ class Dpt{
 				$data= array($value& 0x3f);
 				break;
 			case "18":
-				$control=cmd::byId(str_replace('#','',$option["control"]));
+				$control = jeedom::evaluateExpression($option["ctrl"]);
 				$data= array(($control << 8) & 0x80 | $value & 0x3f);
 				break;
 			case "19": 
-				$value   = new DateTime($value);
-				$wDay = $value->format('N');
-				$hour = $value->format('H');
-				$min = $value->format('i');
-				$sec = $value->format('s');
-				$day = $value->format('d');
-				$month = $value->format('m');
-				$year = $value->format('Y')-1900;
+				$date = new DateTime(); 
+				if($value != ''){
+					$value = strtotime(str_replace('/', '-', $value)); 
+					$date->setTimestamp($value);
+				}
+				$wDay = $date->format('N');
+				$hour = $date->format('H');
+				$min = $date->format('i');
+				$sec = $date->format('s');
+				$day = $date->format('d');
+				$month = $date->format('m');
+				$year = $date->format('Y')-1900;
 				$data = array($year,$month & 0x0f ,$day & 0x1f,($wDay << 5 ) & 0xe0| $hour  & 0x1f , $min  & 0x3f , $sec & 0x3f,0x00,0x00);
 			break;
 			case "20":
@@ -166,6 +171,7 @@ class Dpt{
 			case "27":
 				foreach(explode('|',$option["Info"]) as $bit => $Info){
 					$value=cmd::byId(str_replace('#','',$Info))->execCmd();
+					$data= array();
 					if($bit < 8)
 						$data[0].=$value>>$bit;
 					elseif($bit < 16)
@@ -177,6 +183,12 @@ class Dpt{
 							$data[3].=0x01>>$bit;
 					}
 						
+				}
+			break;
+			case "225":
+				if ($dpt != "225.002"){
+					$TimePeriode=cmd::byId(str_replace('#','',$option["TimePeriode"]));
+					$data= array(($TimePeriode->execCmd() >> 8) & 0xFF, $TimePeriode->execCmd() & 0xFF, $value);
 				}
 			break;
 			case "229":
@@ -201,10 +213,36 @@ class Dpt{
 					}
 				}
 			break;
+			case "251":
+				$rgb= self::html2rgb($value);
+				$w=jeedom::evaluateExpression($option["Température"]);
+				$data= array(0x00,0x00);
+				array_push($data,$rgb,$w);
+			break;
+			case "Color":	
+				$data= false;
+				list($r, $g, $b)=self::html2rgb($value);
+				$cmdR=cmd::byId(str_replace('#','',$option["R"]));
+				if(is_object($cmdR))
+					$cmdR->execCmd(array('slider'=>$r));
+				$cmdG=cmd::byId(str_replace('#','',$option["G"]));
+				if(is_object($cmdG))
+					$cmdG->execCmd(array('slider'=>$g));
+				$cmdB=cmd::byId(str_replace('#','',$option["B"]));
+				if(is_object($cmdB))
+					$cmdB->execCmd(array('slider'=>$b));
+			break;	
+			case "ABB_ControlAcces_Read_Write":
+				$Group=jeedom::evaluateExpression($option["Group"]);
+				$PlantCode=jeedom::evaluateExpression($option["PlantCode"]);
+				$Expire=jeedom::evaluateExpression($option["Expire"]);
+				$data = EIS14_ABB_ControlAcces::WriteTag($value,$Group,$PlantCode,$Expire);
+			break;
 			default:
 				switch($dpt){
 					case "x.001":
-						if ($option["Mode"] !=''){		
+						if ($option["Mode"] !=''){
+							$data= array();
 							$Mode=cmd::byId(str_replace('#','',$option["Mode"]));
 							if (is_object($Mode)){
 								$Mode->event(($data[0]>>1) & 0xEF);
@@ -212,19 +250,6 @@ class Dpt{
 							}
 						}
 						$data= array(($Mode->execCmd()<< 1) & 0xEF | $value& 0x01);
-					break;
-					case "Color":	
-						$data= false;
-						list($r, $g, $b)=self::html2rgb($value);
-						$cmdR=cmd::byId(str_replace('#','',$option["R"]));
-						if(is_object($cmdR))
-							$cmdR->execCmd(array('slider'=>$r));
-						$cmdG=cmd::byId(str_replace('#','',$option["G"]));
-						if(is_object($cmdG))
-							$cmdG->execCmd(array('slider'=>$g));
-						$cmdB=cmd::byId(str_replace('#','',$option["B"]));
-						if(is_object($cmdB))
-							$cmdB->execCmd(array('slider'=>$b));
 					break;
 				}
 			break;
@@ -235,8 +260,7 @@ class Dpt{
 		if ($inverse)
 			log::add('eibd', 'debug','La commande sera inversée');
 		$All_DPT=self::All_DPT();
-		$type= substr($dpt,0,strpos( $dpt, '.' ));
-		switch ($type){
+		switch (explode('.',$dpt)[0]){
 			case "1":
 				$value = $data;		
 				if ($inverse)
@@ -343,13 +367,11 @@ class Dpt{
 				break;
 			case "18":
 				if ($option != null)	{
-					//Mise a jours de l'objet Jeedom ValInfField
-					if ($option["control"] !=''){	
-						//log::add('eibd', 'debug', 'Mise a jours de l\'objet Jeedom ValInfField: '.$option["ValInfField"]);
-						$control=cmd::byId(str_replace('#','',$option["control"]));
+					if ($option["ctrl"] !=''){	
+						$control=cmd::byId(str_replace('#','',$option["ctrl"]));
 						if (is_object($control)){
 							$ctrl = ($data[0] >> 7) & 0x01;
-							log::add('eibd', 'debug', 'L\'objet '.$control->getName().' à été trouvé et vas etre mis a jours avec la valeur '. $ctrl);
+							log::add('eibd', 'debug', 'L\'objet '.$control->getName().' à été trouvé et va être mis à jour avec la valeur '. $ctrl);
 							$control->event($ctrl);
 							$control->setCache('collectDate', date('Y-m-d H:i:s'));
 						}
@@ -404,11 +426,29 @@ class Dpt{
 							$bits=str_split($data[$byte],1);
 							$InfoCmd=cmd::byId(str_replace('#','',$Info[$bit]));
 							if (is_object($InfoCmd)){
-								log::add('eibd', 'debug', 'Nous allons mettre a jours l\'objet: '. $InfoCmd->getHumanName);
+								log::add('eibd', 'debug', 'Nous allons mettre à jour l\'objet: '. $InfoCmd->getHumanName);
 								$InfoCmd->event($bits[$bit]);
 								$InfoCmd->setCache('collectDate', date('Y-m-d H:i:s'));
 							}
 						}
+					}
+				}
+			break;
+			case "225":
+				if ($dpt != "225.002"){
+					$value = $data[0];    
+					if ($option != null){
+						if ($option["ValInfField"] !='' /*&& is_numeric($data[4])&& $data[4]!=''*/){	
+							//log::add('eibd', 'debug', 'Mise à jour de l\'objet Jeedom ValInfField: '.$option["ValInfField"]);
+							$TimePeriode=cmd::byId(str_replace('#','',$option["TimePeriode"]));
+							if (is_object($TimePeriode)){
+								$valeur = $data[0] << 8 | $data[1];
+								log::add('eibd', 'debug', 'L\'objet '.$TimePeriode->getName().' à été trouvé et va être mis à jour avec la valeur '. $valeur);
+								$TimePeriode->event($valeur);
+								$TimePeriode->setCache('collectDate', date('Y-m-d H:i:s'));
+							}
+						}
+						
 					}
 				}
 			break;
@@ -423,24 +463,24 @@ class Dpt{
 					if ($value >= 0x80000000)
 						$value = -(($value - 1) ^ 0xffffffff);  # invert twos complement       
 					if ($option != null){
-						//Mise a jours de l'objet Jeedom ValInfField
+						//Mise à jour de l'objet Jeedom ValInfField
 						if ($option["ValInfField"] !='' /*&& is_numeric($data[4])&& $data[4]!=''*/){	
-							//log::add('eibd', 'debug', 'Mise a jours de l\'objet Jeedom ValInfField: '.$option["ValInfField"]);
+							//log::add('eibd', 'debug', 'Mise à jour de l\'objet Jeedom ValInfField: '.$option["ValInfField"]);
 							$ValInfField=cmd::byId(str_replace('#','',$option["ValInfField"]));
 							if (is_object($ValInfField)){
 								$valeur=$data[4];
-								log::add('eibd', 'debug', 'L\'objet '.$ValInfField->getName().' à été trouvé et vas etre mis a jours avec la valeur '. $valeur);
+								log::add('eibd', 'debug', 'L\'objet '.$ValInfField->getName().' à été trouvé et va être mis à jour avec la valeur '. $valeur);
 								$ValInfField->event($valeur);
 								$ValInfField->setCache('collectDate', date('Y-m-d H:i:s'));
 							}
 						}
-						//Mise a jours de l'objet Jeedom StatusCommande
+						//Mise à jour de l'objet Jeedom StatusCommande
 						if ($option["StatusCommande"] !='' /*&& is_numeric(($data[5]>>1) & 0x01)&& $data[5]!=''*/){
-							//log::add('eibd', 'debug', 'Mise a jours de l\'objet Jeedom StatusCommande: '.$option["StatusCommande"]);
+							//log::add('eibd', 'debug', 'Mise à jour de l\'objet Jeedom StatusCommande: '.$option["StatusCommande"]);
 							$StatusCommande=cmd::byId(str_replace('#','',$option["StatusCommande"]));
 							if (is_object($StatusCommande)){
 								$valeur=($data[5]>>1) & 0x01;
-								log::add('eibd', 'debug', 'L\'objet '.$StatusCommande->getName().' à été trouvé et vas etre mis a jours avec la valeur '. $valeur);
+								log::add('eibd', 'debug', 'L\'objet '.$StatusCommande->getName().' à été trouvé et va être mis à jour avec la valeur '. $valeur);
 								$StatusCommande->event($valeur);
 								$StatusCommande->setCache('collectDate', date('Y-m-d H:i:s'));
 							}
@@ -465,13 +505,13 @@ class Dpt{
 						if ($option["ActiveElectricalEnergy"] !=''){	
 							$ActiveElectricalEnergy=explode('|',$option["ActiveElectricalEnergy"]);
 							$Tarif=$data[4];
-							log::add('eibd', 'debug', 'Nous allons mettre a jours le tarif '. $Tarif);	
+							log::add('eibd', 'debug', 'Nous allons mettre à jour le tarif '. $Tarif);	
 							$ActiveElectricalEnergyCommande=cmd::byId(str_replace('#','',$ActiveElectricalEnergy[$Tarif]));
 							if (is_object($ActiveElectricalEnergyCommande)){
 								$valeur =$data[0] << 24 | $data[1] << 16 | $data[2] << 8 | $data[3] ;
 								if ($valeur >= 0x80000000)
 									$valeur = -(($valeur - 1) ^ 0xffffffff);  # invert twos complement    
-								log::add('eibd', 'debug', 'L\'objet '.$ActiveElectricalEnergyCommande->getName().' à été trouvé et vas etre mis a jours avec la valeur '. $valeur);
+								log::add('eibd', 'debug', 'L\'objet '.$ActiveElectricalEnergyCommande->getName().' à été trouvé et va être mis à jour avec la valeur '. $valeur);
 								$ActiveElectricalEnergyCommande->event($valeur);
 								$ActiveElectricalEnergyCommande->setCache('collectDate', date('Y-m-d H:i:s'));
 							}
@@ -479,12 +519,78 @@ class Dpt{
 					}
 				}
 			break;
+			case "251":
+				$Temperature=cmd::byId(str_replace('#','',$option["Température"]));
+				if (is_object($Temperature)){
+					$valeur=$data[0];
+					log::add('eibd', 'debug', 'L\'objet '.$Temperature->getName().' à été trouvé et va être mis à jour avec la valeur '. $valeur);
+					$Temperature->event($valeur);
+					$Temperature->setCache('collectDate', date('Y-m-d H:i:s'));
+				}	
+				$value= self::rgb2html($data[1],$data[2], $data[3]);
+			break;			
+			case "Color":	
+				$R=cmd::byId(str_replace('#','',$option["R"]));
+				if(!is_object($R) && $R->getType() == 'info')
+					return;
+				$G=cmd::byId(str_replace('#','',$option["G"]));
+				if(!is_object($G) && $G->getType() == 'info')
+					return;
+				$B=cmd::byId(str_replace('#','',$option["B"]));
+				if(!is_object($B) && $B->getType() == 'info')
+					return;
+				$listener = listener::byClassAndFunction('eibd', 'UpdateCmdOption', $option);
+				if (!is_object($listener)){
+					$listener = new listener();
+					$listener->setClass('eibd');
+					$listener->setFunction('UpdateCmdOption');
+					$listener->setOption($option);
+					$listener->emptyEvent();
+					$listener->addEvent($R->getId());
+					$listener->addEvent($G->getId());
+					$listener->addEvent($B->getId());
+					$listener->save();
+				}
+				$value= self::rgb2html($R->execCmd(),$G->execCmd(),$B->execCmd());
+			break;
+			case "ABB_ControlAcces_Read_Write":
+				$Read= EIS14_ABB_ControlAcces::ReadTag($data);
+				if(!$Read)
+					return false;
+				list($value,$PlantCode,$Expire)=$Read;
+				$isValidCode = false;
+				/*
+				foreach(explode("&&",$option["Group"]) as $Groupe){
+					if(jeedom::evaluateExpression($Groupe) == $Groupe){
+						$isValidCode= true;
+						break;
+					}
+				}
+				if(!$isValidCode){
+					log::add('eibd','debug','{{Le badge ('.$value.')  n\'appartient a aucun groupe  ('.$Group.') }}');
+					return false;
+				}*/				
+				foreach(explode("&&",$option["PlantCode"]) as $Plant){
+					if(jeedom::evaluateExpression($Plant) == $PlantCode){
+						$isValidCode= true;
+						break;
+					}
+				}
+				if(!$isValidCode){
+					log::add('eibd','debug','{{Le badge ('.$value.') n\'appartient a aucun PlantCode ('.$PlantCode.')}}');
+					return false;
+				}
+// 				if(jeedom::evaluateExpression($option["Expire"]) > $Expire){
+// 					log::add('eibd','debug','{{Le badge ('.$value.') est expirer ('.date("d/m/Y H:i:s",$Expire).')}}');
+// 					return false;
+// 				}
+			break;	
 			default:
 				switch($dpt){
 					case "x.001":
 						$value = $data[0]& 0x01;      
 						if ($option != null){
-							//Mise a jours de l'objet Jeedom Mode
+							//Mise à jour de l'objet Jeedom Mode
 							if ($option["Mode"] !=''){		
 								$Mode=cmd::byId(str_replace('#','',$option["Mode"]));
 								if (is_object($Mode)){
@@ -493,31 +599,7 @@ class Dpt{
 								}
 							}
 						}
-					break;					
-					case "Color":	
-						$R=cmd::byId(str_replace('#','',$option["R"]));
-						if(!is_object($R) && $R->getType() == 'info')
-							return;
-						$G=cmd::byId(str_replace('#','',$option["G"]));
-						if(!is_object($G) && $G->getType() == 'info')
-							return;
-						$B=cmd::byId(str_replace('#','',$option["B"]));
-						if(!is_object($B) && $B->getType() == 'info')
-							return;
-						$listener = listener::byClassAndFunction('eibd', 'UpdateCmdOption', $option);
-						if (!is_object($listener)){
-						   	$listener = new listener();
-							$listener->setClass('eibd');
-							$listener->setFunction('UpdateCmdOption');
-							$listener->setOption($option);
-							$listener->emptyEvent();
-							$listener->addEvent($R->getId());
-							$listener->addEvent($G->getId());
-							$listener->addEvent($B->getId());
-							$listener->save();
-						}
-						$value= self::rgb2html($R->execCmd(),$G->execCmd(),$B->execCmd());
-					break;
+					break;		
 				}
 			break;
 		};
@@ -611,7 +693,7 @@ class Dpt{
 				}
 			next($All_DPT);
 			}
-		return ;
+		return 'other';
 		}
 	public function getDptInfoType($dpt)	{
 		$All_DPT=self::All_DPT();
@@ -625,7 +707,7 @@ class Dpt{
 				}
 			next($All_DPT);
 			}
-		return ;
+		return 'string';
 		}
 	public function getDptGenericType($dpt)	{
 		$All_DPT=self::All_DPT();
@@ -662,7 +744,7 @@ class Dpt{
 			break;
 		}
 	}
-	public function All_DPT()	{
+	public static function All_DPT(){
 		return array (
 		"Boolean"=> array(
 			"1.xxx"=> array(
@@ -1077,7 +1159,7 @@ class Dpt{
 				"max"=> 254,
 				"InfoType"=>'numeric',
 				"ActionType"=>'slider',
-				"Unite"=>"ratio"),
+				"Unite"=>""),
 			"5.010"=> array(
 				"Name"=>"Unsigned count",
 				"Valeurs"=>array(),
@@ -1551,64 +1633,64 @@ class Dpt{
 			"13.001"=> array(
 				"Name"=>"Flow rate",
 				"Valeurs"=>array(),
-				"min"=>-214748.3648,
-				"max"=> 214748.3647,
+				"min"=>-2147483648,
+				"max"=> 2147483647,
 				"InfoType"=>'numeric',
 				"ActionType"=>'slider',
 				"Unite"=>"m³/h"),
 			"13.010"=> array(
 				"Name"=>"Active energy",
 				"Valeurs"=>array(),
-				"min"=>-214748.3648,
-				"max"=> 214748.3647,
+				"min"=>-2147483648,
+				"max"=> 2147483647,
 				"InfoType"=>'numeric',
 				"ActionType"=>'slider',
 				"Unite"=>"W.h"),
 			"13.011"=> array(
 				"Name"=>"Apparent energy",
 				"Valeurs"=>array(),
-				"min"=>-214748.3648,
-				"max"=> 214748.3647,
+				"min"=>-2147483648,
+				"max"=> 2147483647,
 				"InfoType"=>'numeric',
 				"ActionType"=>'slider',
 				"Unite"=>"VA.h"),
 			"13.012"=> array(
 				"Name"=>"Reactive energy",
 				"Valeurs"=>array(),
-				"min"=>-214748.3648,
-				"max"=> 214748.3647,
+				"min"=>-2147483648,
+				"max"=> 2147483647,
 				"InfoType"=>'numeric',
 				"ActionType"=>'slider',
 				"Unite"=>"VAR.h"),
 			"13.013"=> array(
 				"Name"=>"Active energy (kWh)",
 				"Valeurs"=>array(),
-				"min"=>-214748.3648,
-				"max"=> 214748.3647,
+				"min"=>-2147483648,
+				"max"=> 2147483647,
 				"InfoType"=>'numeric',
 				"ActionType"=>'slider',
 				"Unite"=>"kW.h"),
 			"13.014"=> array(
 				"Name"=>"Apparent energy (kVAh)",
 				"Valeurs"=>array(),
-				"min"=>-214748.3648,
-				"max"=> 214748.3647,
+				"min"=>-2147483648,
+				"max"=> 2147483647,
 				"InfoType"=>'numeric',
 				"ActionType"=>'slider',
 				"Unite"=>"kVA.h"),
 			"13.015"=> array(
 				"Name"=>"Reactive energy (kVARh)",
 				"Valeurs"=>array(),
-				"min"=>-214748.3648,
-				"max"=> 214748.3647,
+				"min"=>-2147483648,
+				"max"=> 2147483647,
 				"InfoType"=>'numeric',
 				"ActionType"=>'slider',
 				"Unite"=>"kVAR.h"),
 			"13.100"=> array(
 				"Name"=>"Long delta time",
 				"Valeurs"=>array(),
-				"min"=>-214748.3648,
-				"max"=>214748.3647,
+				"min"=>-2147483648,
+				"max"=>2147483647,
 				"InfoType"=>'numeric',
 				"ActionType"=>'slider',
 				"Unite"=>"s")),
@@ -2299,7 +2381,7 @@ class Dpt{
 		"Scene"=> array(
 			"17.xxx"=> array(
 				"Name"=>"Generic",
-				"Valeurs"=>array(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63),
+				"Valeurs"=>array(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63),
 				"min"=>'',
 				"max"=>'',
 				"InfoType"=>'numeric',
@@ -2309,7 +2391,7 @@ class Dpt{
 				"Unite" =>""),
 			"17.001"=> array(
 				"Name"=>"Scene",
-				"Valeurs"=>array(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63),
+				"Valeurs"=>array(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63),
 				"min"=>'',
 				"max"=>'',
 				"InfoType"=>'numeric',
@@ -2320,23 +2402,23 @@ class Dpt{
 		"Scene Control"=> array(
 			"18.xxx"=> array(
 				"Name"=>"Generic",
-				"Valeurs"=>array(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63),
+				"Valeurs"=>array(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63),
 				"min"=>'',
 				"max"=>'',
 				"InfoType"=>'numeric',
 				"ActionType"=>'slider',
 				"GenericType"=>"DONT",
-				"Option" =>array(),
+				"Option" =>array("ctrl"),
 				"Unite" =>""),
 			"18.001"=> array(
 				"Name"=>"Scene Control",
-				"Valeurs"=>array(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63),
+				"Valeurs"=>array(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63),
 				"min"=>'',
 				"max"=>'',
 				"InfoType"=>'numeric',
 				"ActionType"=>'slider',
 				"GenericType"=>"DONT",
-				"Option" =>array(),
+				"Option" =>array("ctrl"),
 				"Unite" =>"")),
 		"DateTime"=> array(
 			"19.xxx"=> array(
@@ -2473,6 +2555,26 @@ class Dpt{
 				"GenericType"=>"DONT",
 				"Option" =>array("Info"),
 				"Unite" =>""),
+			"225.002"=> array(
+				"Name"=>"Scaling step time",
+				"Valeurs"=>array(),
+				"min"=>'',
+				"max"=>'',
+				"InfoType"=>'numeric',
+				"ActionType"=>'slider',
+				"GenericType"=>"DONT",
+				"Option" =>array("TimePeriode"),
+				"Unite" =>""),
+			"229.001"=> array(
+				"Name"=>"Metering value",
+				"Valeurs"=>array(),
+				"min"=>'',
+				"max"=>'',
+				"InfoType"=>'numeric',
+				"ActionType"=>'slider',
+				"GenericType"=>"DONT",
+				"Option" =>array("ValInfField","StatusCommande"),
+				"Unite" =>""),
 			"235.001"=> array(
 				"Name"=>"Tarif ActiveEnergy",
 				"Valeurs"=>array(),
@@ -2493,16 +2595,6 @@ class Dpt{
 				"GenericType"=>"DONT",
 				"Option" =>array(),
 				"Unite" =>""),
-			"229.001"=> array(
-				"Name"=>"Metering value",
-				"Valeurs"=>array(),
-				"min"=>'',
-				"max"=>'',
-				"InfoType"=>'numeric',
-				"ActionType"=>'slider',
-				"GenericType"=>"DONT",
-				"Option" =>array("ValInfField","StatusCommande"),
-				"Unite" =>""),
 			"251.600"=> array(
 				"Name"=>"Colour RGBW",
 				"Valeurs"=>array(),
@@ -2511,7 +2603,7 @@ class Dpt{
 				"InfoType"=>'string',
 				"ActionType"=>'color',
 				"GenericType"=>"DONT",
-				"Option" =>array(),
+				"Option" =>array("Température"),
 				"Unite" =>"")),
 		"Spécifique"=> array(
 			"x.001"=> array(
@@ -2533,6 +2625,17 @@ class Dpt{
 				"ActionType"=>'color',
 				"GenericType"=>"DONT",
 				"Option" =>array("R","G","B"),
+				"Unite" =>"")),
+		"ABB - Acces Control"=> array(
+			"ABB_ControlAcces_Read_Write"=> array(
+				"Name"=>"Read/Write code Tag",
+				"Valeurs"=>array(),
+				"min"=>'',
+				"max"=>'',
+				"InfoType"=>'string',
+				"ActionType"=>'message',
+				"GenericType"=>"DONT",
+				"Option" =>array("Group","PlantCode","Expire"),
 				"Unite" =>""))
 		);
 	}
